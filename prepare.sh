@@ -1,0 +1,1 @@
+sed -re s/ID/${ID}/g -i ./config/*
