@@ -8,31 +8,33 @@ topology:
       binds:
         - ./config/r1.conf:/etc/frr/frr.conf:rw
         - ./config/frr-daemons.conf:/etc/frr/daemons
+        - ./config/vtysh.conf:/etc/frr/vtysh.conf
     r2:
       kind: linux
       image: quay.io/frrouting/frr:10.2.3
       binds:
         - ./config/r2.conf:/etc/frr/frr.conf:rw
         - ./config/frr-daemons.conf:/etc/frr/daemons
+        - ./config/vtysh.conf:/etc/frr/vtysh.conf
     r3:
       kind: linux
       image: quay.io/frrouting/frr:10.2.3
       binds:
         - ./config/r3.conf:/etc/frr/frr.conf:rw
         - ./config/frr-daemons.conf:/etc/frr/daemons
-
+        - ./config/vtysh.conf:/etc/frr/vtysh.conf
     c1:
       kind: linux
       image: ghcr.io/srl-labs/network-multitool
       exec:
-        - ip addr add 10.${ID:=99}.1.2/24 dev eth1
-        - ip route add 10.0.0.0/8 via 10.${ID:=99}.1.1
+        - ip addr add 10.ID.1.2/24 dev eth1
+        - ip route add 10.0.0.0/8 via 10.ID.1.1
     c2:
       kind: linux
       image: ghcr.io/srl-labs/network-multitool
       exec:
-        - ip addr add 10.${ID:=99}.2.2/24 dev eth1
-        - ip route add 10.0.0.0/8 via 10.${ID:=99}.2.1
+        - ip addr add 10.ID.2.2/24 dev eth1
+        - ip route add 10.0.0.0/8 via 10.ID.2.1
 
   links:
     - endpoints: [r1:eth1, r2:eth1]

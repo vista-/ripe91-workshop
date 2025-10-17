@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-To run this workshop, you should have at least 1-2 GB of RAM available on your Linux host, and should run kernel 5.4 or newer.
-Recommended distributions are: Ubuntu (20.04), Debian (11), Fedora (32), CentOS (9) or derivatives, or newer.
+To run this workshop, you should have at least 1-2 GB of RAM available on your Linux host, and should run kernel 5.4 or newer.  
+Recommended distributions are: Ubuntu (20.04), Debian (11), Fedora (32), CentOS (9) or derivatives, or newer (don't downgrade if you got something newer ;) ).
 
 The workshop can be ran on x86 or ARM64-based systems.
 
@@ -20,11 +20,17 @@ If you wish to install Containerlab yourself, please make sure the following pre
 - A working container runtime (Docker recommended!)
 - git
 
-After installation with the one-liner, a group called `clab_admins` will also be created. If you would like to use Containerlab without sudo, you should add your user to this group using the following command: `gpasswd -a <your username here> clab_admins` and apply the new group membership to your terminal session using the `newgrp clab_admins` command.
+After installation with the one-liner, a group called `clab_admins` will also be created.
 
-Upon successful installation, `containerlab version` should give you a nice output.
+> [!TIP]
+> If you would like to use Containerlab without sudo, you should add your user to this group using the following command: 
+> `gpasswd -a <your username here> clab_admins`
+> and apply the new group membership to your terminal session using the `newgrp clab_admins` command.
 
-The workshop requires Containerlab 0.69.4 (release pending at the time of writing) or newer.
+Upon successful installation, `containerlab version` should give you a nice output. `clab version` should also work on most distributions, as a short alias is also installed.
+
+> [!NOTE]
+> The workshop requires Containerlab 0.70.1 or newer, make sure your Containerlab installation is up to date _if you have installed it before the workshop_!
 
 ## Task -1: Testing Containerlab
 
@@ -44,9 +50,12 @@ PING 10.0.0.2 (10.0.0.2): 56 data bytes
 
 ## Task 0: Deploying the topology
 
+> [!IMPORTANT]
+> **Before deploying the topology**, make sure to run the `export ID=<your ID here>; ./prepare.sh` command to prepare the configuration files for use!
+
 The workshop topology consists of two FRR routers and two clients.
 
-![Workshop topology](images/topology.png)
+![Workshop topology base](images/topology0.png)
 
 The credentials for the nodes are the following:
 - FRR: Use `docker exec -it <nodename> vtysh` to enter the FRR shell
@@ -61,9 +70,7 @@ The topology image shows the addressing, but this is reproduced here for brevity
 - `r2` loopback: 10.**X**.0.2/32, client addressing 10.**X**.2.0/24
 - `r1`-`r2` link: 10.**X**.0.128/31
 
-**Before deploying the topology**, make sure to run the `export ID=<your ID here>; ./prepare.sh` command to prepare the configuration files for use!
-
-Use the `clab deploy` command to deploy the topology.
+Use the `containerlab deploy` command to deploy the topology.
 
 To test the deployed topology, you can run the `docker exec clab-ripeworkshop-c2 ping 10.X.2.1` command, where X is your ID. This ping should work!
 
@@ -87,6 +94,9 @@ Let's configure `r1` and `c1`!
 
 To verify your configuration, you should check the routing tables on `r1` and verify that the route 10.**X**.2.0/24 is visible and reachable, and that the client `c1` can ping `c2` without an issue.
 
+> [!TIP]
+> If you get stuck trying to access the nodes, remember that they are documented in Step 0. `clab inspect` allows you to check node IPs and their current health status.
+
 ```
 r1# show ip route ospf
 ...
@@ -106,26 +116,28 @@ PING 10.X.2.2 (10.X.2.2) 56(84) bytes of data.
 
 We are going to expand the topology a bit by adding `r3`, yet another FRR router.
 
-![Workshop topology version 2](images/topology2.png)
+![Workshop topology version 2](images/topology1.png)
 
-Before we do anything though, let's save our progress! Use the `write` command on `r1`. You should see `config/r1.conf` change on the disk, as it is mounted read-write.
-It might be owned by `root` now, so just `chown username:username ./config/r1.conf` it back!
+Before we do anything though, let's save our progress! Use the `write` command on `r1`. You should see `config/r1.conf` change on the disk, as it is mounted read-write.  
+
+> [!WARNING]
+> The configuration file will be owned by `root` now, so just `sudo chown $USER ./config/r1.conf` it back!
 
 Normally, with regular NOSes where Containerlab can pass a startup-config, the `containerlab save` command could do this for us, but not for FRR today.
 
 We can then destroy the Containerlab topology with `containerlab destroy`.
 
-In the topology, make sure to also add the missing config for client `c1`.
-Then, add `r3` by copying one of the router nodes and changing the appropriate values.
+In the topology, make sure to also add the missing config for client `c1`.  
+Then, add `r3` by copying one of the router nodes and changing the appropriate values.  
 After that's done, create a link between `r3` and `r1` according to the topology diagram in the topology file.
 
-Finally, to create `r3`'s configuration, just `cp ./config/r1.conf ./config/r3.conf`, and delete the OSPF configuration and change the interface addressing for the P2P link in `r3.conf`, and add the new interface to `r1.conf`.
+Finally, to create `r3`'s configuration, just `cp ./config/r1.conf ./config/r3.conf`, and delete the OSPF configuration and change the interface addressing for the P2P link in `r3.conf`, and add the new interface to `r1.conf`.  
 You don't have to spin up the nodes to manually change the configuration files!
 
 To verify our work, deploy the topology and verify that `r3` is now in the list of nodes. If we did the interface configurations correctly, we should be able to ping `r3` from `r1`.
 
 ```
-$ clab deploy
+$ containerlab deploy
 │ ...             │ ...                                │ ...     │ ...            │
 ├─────────────────┼────────────────────────────────────┼─────────┼────────────────┤
 │ clab-ripelab-r3 │ linux                              │ running │ 172.20.20.5    │
@@ -141,10 +153,13 @@ PING 10.X.0.130 (10.X.0.130): 56 data bytes
 
 `r3` and `r1` should have eBGP running between the two routers.
 
-`r3` is AS65000+**X**. `r1` is AS65100+**X**. Don't touch the OSPF routing configuration for now, though!
+![Workshop topology version 2](images/topology2.png)
+
+`r3` is AS65000+**X**. `r1` is AS65100+**X** (so, if your ID is **42**, you would end up with AS650**42** and AS651**42**). Don't touch the OSPF routing configuration for now, though!  
 Redistribute the OSPF routes into the BGP instance on `r1`.
 
-Hint: `no bgp ebgp-requires-policy` gets you out of having to write routing policies.
+> [!TIP]
+> `no bgp ebgp-requires-policy` gets you out of having to write routing policies.
 
 An optional task: Only advertise an aggregate route 10.**X**.0.0/16 from `r1` to `r3` via BGP!
 
@@ -166,10 +181,13 @@ r3# show bgp ipv4
 
 We will be using one of Containerlab's many built-in tools to interconnect your topology with other participants' networks!
 
-First of all, make sure all your work is **saved**! `r1` and `r3` will need their configurations saved. Don't forget to reset the file ownership on these two files.
+First of all, make sure all your work is **saved**! `r1` and `r3` will need their configurations saved.
+
+> [!IMPORTANT]
+> Don't forget to reset the file ownership on the two newly-saved configuration files!
 
 We are going to add an external-facing interface in the topology:
-Add a new endpoint to the topology: `- endpoints: [r3:eth2, host:r3-ext]`
+`- endpoints: [r3:eth2, host:r3-ext]`
 
 The `host` bit tells Containerlab that this interface should be created on the Containerlab host.
 
@@ -186,24 +204,29 @@ To connect this device to the "IX", we will using the Containerlab command to bi
 containerlab tools vxlan create --remote <VXLAN hub address> --id <VNI> --link r3-ext --src-port 14789 --port 14789
 ```
 
-The VXLAN Hub's IP address and the VNI will be provided during the workshop. The VXLAN hub the tunnel connects to is a custom-written VXLAN switch implementation, which can be found here: https://github.com/vista-/vxlan-hub
+_The VXLAN Hub's IP address and the VNI will be provided during the workshop._  
+
+The VXLAN hub the tunnel connects to is a custom-written VXLAN switch implementation, which can be found here: https://github.com/vista-/vxlan-hub  
 Note that we don't use the default VXLAN port, 4789, as it is blocked by many cloud providers.
 
 ![Workshop topology version 3](images/topology3.png)
 
 Finally, we can start configuring things!
 
-The "IX" LAN is 10.255.0.0/24, and each "IX" participants' "IX"-facing interface is numbered as 10.255.0.**X**. The ASN used on the "IX" is the one used on `r3`, so AS65000+**X**.
+The "IX" LAN is 10.255.0.0/24, and each "IX" participants' "IX"-facing interface is numbered as 10.255.0.**X**. The ASN used on the "IX" is the same one used on `r3`, so AS65000+**X**.
 
-There is a route server running on 10.255.0.254, with AS65000.
+There is a route server running on 10.255.0.254, peering as AS65000.
 
 Your task is to set up BGP peering with both the "IX" route server and set up bilateral sessions with other participants as well, and successfully ping their `c2` clients!
 
-Hint1: Make sure you can ping the "IX" route server before doing any further configuration.
-Hint2: By default, FRR only accepts the remote AS as the first AS in the path, there's a knob to adjust this.
-Hint3: You might need to redistribute routes on `r1` from BGP into OSPF in order to successfully route through to `r2`, through which `c2` is connected.
+> [!TIP]
+> Hints:
+> - Make sure you can ping the "IX" route server before doing any further configuration.
+> - By default, FRR only accepts the remote AS as the first AS in the path, there's a knob to adjust this.
+> - You need to redistribute routes on `r1` from BGP into OSPF in order to advertise others' client subnets to `r2`. Alternatively, point the route 10.0.0.0/8 on `r2` to `r1`.
 
-If you feel the need to redeploy, make sure to do `containerlab tools vxlan destroy` before destroying the lab!
+> [!CAUTION] 
+> If you feel the need to redeploy, make sure to do `containerlab tools vxlan destroy` before destroying the lab! Forgetting to do this might leave a dangling VXLAN tunnel on the Linux Netlink side of things.
 
 To verify your work, check out BGP sessions, route tables, and pings to others' `c2` clients:
 
@@ -237,13 +260,17 @@ Feel free to try out other things while the workshop is still open! Please make 
 
 ## Teardown
 
-To tear down the lab, first destroy the VXLAN tunnel (if you created one at this point):
-```
-containerlab tools vxlan destroy
-```
+> [!CAUTION]
+> Always first destroy the VXLAN tunnel (if you created one at this point):
+> ```
+> containerlab tools vxlan destroy
+> ```
 
-You can destroy the lab by using the `containerlab destroy command`.
+You can destroy the lab by using the `containerlab destroy` command.
 
 ## Solutions
 
 If you get stuck, or need to quickly catch up to the next task, you can find the solved topology and configs under the `.solved` directory, one for each task.
+
+> [!IMPORTANT]
+> Make sure to run ./prepare.sh to populate your configs and topologies with the correct ID!
